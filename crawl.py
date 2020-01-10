@@ -5,6 +5,7 @@ import json
 import datetime
 import re
 import os
+import time
 
 # to extract:
 #   posts = {idx: url, title, reg_date, content, view, voteup, votedown}
@@ -20,6 +21,7 @@ def check_robots(url):
 gall_id = 'dbd' # gallery id 
 n_page = 1 # number of board pages to scrap
 posts = {}
+sleep = 0.1
 
 # get post url and info from board
 t_start = datetime.datetime.now()
@@ -62,6 +64,7 @@ for page in range(1, n_page + 1):
                 posts[idx] = post
             except:
                 continue
+        time.sleep(sleep)
     except:
         continue
 
@@ -128,6 +131,7 @@ for idx_hash, post_chunk in sorted(post_chunks.items())[::-1]:
                 pass
             #print(comments[idx])
             comment_page += 1
+            time.sleep(sleep)
     # save chunk to file
     filename =  f'data/{gall_id}_{idx_hash}xxx.json'
     if not os.path.exists(os.path.dirname(filename)):
