@@ -44,8 +44,8 @@ for page in range(1, n_page + 1):
         data = soup.find('table','gall_list').find_all('tr', {'class':'ub-content us-post'})
 
         for post in data:
-            #if(post['data-type']=='icon_notice'):
-            #    continue
+            if(post['data-type']=='icon_notice'):
+                continue
             idx = post['data-no']
             a = post.find('td', {'class':'gall_tit ub-word'}).a
             post_url = 'https://gall.dcinside.com/' + a['href']
@@ -110,8 +110,5 @@ for i, idx in enumerate(posts):
         comments[idx] = []
 t_end = datetime.datetime.now()
 print(f'\rfetching comments - Done. {t_end - t_start} elapsed.'.ljust(200))
-
 with open('data.json', 'w', encoding='UTF-8-sig') as f_data:
     json.dump({'posts': posts, 'comments': comments}, f_data, indent=4, sort_keys=True, ensure_ascii=False)
-
-    
