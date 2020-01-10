@@ -19,7 +19,7 @@ def check_robots(url):
 
 
 gall_id = 'dbd' # gallery id 
-n_page = 1 # number of board pages to scrap
+n_page = 1000 # number of board pages to scrap
 posts = {}
 sleep = 0.1
 
@@ -27,8 +27,8 @@ sleep = 0.1
 t_start = datetime.datetime.now()
 for page in range(1, n_page + 1):
     url_board = f"https://gall.dcinside.com/mgallery/board/lists/?id={gall_id}&page={page}"
-    #if page > 1: 
-    #    print('\r', end='')
+    if page > 1: 
+        print('\r', end='')
     print(f'fetching posts - page {page}/{n_page}, {url_board}', end='')
 
     url_board = f"https://gall.dcinside.com/mgallery/board/lists/?id={gall_id}&page={page}"
