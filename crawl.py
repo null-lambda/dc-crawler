@@ -4,10 +4,11 @@ import urllib.robotparser as urobot
 import json
 import datetime
 import re
+import os
 
 # to extract:
 #   posts = {idx: url, title}
-#   comments = {idx: list of (reg_date, name, ip or user_id, memo)}
+#   comments = {idx: list of (reg_date, name, ip or user_id, content)}
 
 def check_robots(url):
     rp = urobot.RobotFileParser()
@@ -60,16 +61,22 @@ print(f'\rfetching posts - Done. {t_end - t_start} elapsed.'.ljust(100))
 
 
 t_start = datetime.datetime.now()
-comments = {}
-for i, idx in enumerate(posts):
-    if i > 0: 
-        print('\r', end='')
-    print(f'fetching comments - post {i + 1}/{len(posts)}, {post_url}, {post_title}', end='')
-    
-    post_title = posts[idx]['title']
-    post_url = posts[idx]['url']
+post_chunks = {}
+for idx in posts:
+    idx_hash = int(idx) // 1000
+    if idx_hash not in post_chunks:
+        post_chunks[idx_hash] = {}
+    post_chunks[idx_hash][idx] = posts[idx]
 
-    try:
+i = 1
+for idx_hash, post_chunk in sorted(post_chunks.items())[::-1]:
+    comments = {}
+    for idx, post in sorted(post_chunk.items())[::-1]:
+        if i > 0: 
+            print('\r', end='')
+        print(f'fetching comments - post {i}/{len(posts)}, {post["url"]}, {post["title"]}', end='')
+        i += 1
+        
         comments[idx] = []
         comment_url = 'https://gall.dcinside.com/board/comment/'
         comment_page = 1
@@ -83,32 +90,37 @@ for i, idx in enumerate(posts):
                 'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.117 Safari/537.36',
                 'X-Requested-With':'XMLHttpRequest'
             }
-            req = requests.post(comment_url, data = data, headers=headers)
-            json_text = req.text
-            data = json.loads(json_text)
+            try:
+                req = requests.post(comment_url, data = data, headers=headers)
+                json_text = req.text
+                data = json.loads(json_text)
 
-            if comment_page == 1:
-                re_match = re.compile(r'viewComments\((\d),').findall(data['pagination'])
-                if re_match:
-                    max_comment_page = int(re_match[-1].group(0))
-                    print(max_comment_page)
+                if comment_page == 1:
+                    re_match = re.compile(r'viewComments\((\d),').findall(data['pagination'])
+                    if re_match:
+                        max_comment_page = int(re_match[-1])
 
-            def fix_date(reg_date):
-                if reg_date[:2] != '20':
-                    reg_date = str(datetime.datetime.now().year) +'.' + reg_date
-                return reg_date.replace('.', '-')
-            comments[idx].extend(list({
-                'reg_date': fix_date(comment['reg_date']), 
-                'name': comment['name'], 
-                'user_id': comment['user_id'], 
-                'ip': comment['ip'],
-                'memo': comment['memo']
-                } for comment in data['comments'])[::-1])
+                def fix_date(reg_date):
+                    if reg_date[:2] != '20':
+                        reg_date = str(datetime.datetime.now().year) +'.' + reg_date
+                    return reg_date.replace('.', '-')
+                comments[idx].extend(list({
+                    'reg_date': fix_date(comment['reg_date']), 
+                    'name': comment['name'], 
+                    'user_id': comment['user_id'], 
+                    'ip': comment['ip'],
+                    'content': comment['memo']
+                    } for comment in data['comments'])[::-1])
+            except:
+                pass
             #print(comments[idx])
             comment_page += 1
-    except:
-        comments[idx] = []
+    # save post chunk (with comments) to file
+    filename =  f'data/{gall_id}_{idx_hash}xxx.json'
+    if not os.path.exists(os.path.dirname(filename)):
+        os.makedirs(os.path.dirname(filename))
+    with open(filename, 'w', encoding='UTF-8-sig') as f_data:
+        json.dump({'posts': post_chunk, 'comments': comments}, f_data, indent=4, sort_keys=True, ensure_ascii=False)
+
 t_end = datetime.datetime.now()
 print(f'\rfetching comments - Done. {t_end - t_start} elapsed.'.ljust(200))
-with open('data.json', 'w', encoding='UTF-8-sig') as f_data:
-    json.dump({'posts': posts, 'comments': comments}, f_data, indent=4, sort_keys=True, ensure_ascii=False)
