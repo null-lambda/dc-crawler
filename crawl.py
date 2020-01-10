@@ -54,22 +54,10 @@ for page in range(1, n_page + 1):
             post['reg_date'] = data.find('td', {'class': 'gall_date'})['title']
             post['view'] = int(data.find('td', {'class': 'gall_count'}).get_text())
             post['voteup'] = int(data.find('td', {'class': 'gall_recommend'}).get_text())
-    
-            # open post url and get info 
-            try:
-                req = requests.get(post['url'], headers=headers)
-                soup = BeautifulSoup(req.text, 'lxml')
-                post['content'] = str(soup.find('div', {'class': 'writing_view_box'}).find('div', {'style':'overflow:hidden;'}))
-                post['votedown'] = int(soup.find('p', {'class': 'down_num'}).get_text())
-                posts[idx] = post
-            except:
-                continue
+            posts[idx] = post
         time.sleep(sleep)
     except:
         continue
-
-
-
 t_end = datetime.datetime.now()
 print(f'\rfetching posts - Done. {t_end - t_start} elapsed.'.ljust(100))
 
@@ -84,15 +72,29 @@ for idx in posts:
     post_chunks[idx_hash][idx] = posts[idx]
 
 
-# get comments and save each chunk(posts, comments) to file
+# fetch comments and additional info, 
+# then save each chunk(posts, comments) to file
 i = 1
 for idx_hash, post_chunk in sorted(post_chunks.items())[::-1]:
     comments = {}
     for idx, post in sorted(post_chunk.items())[::-1]:
         if i > 0: 
             print('\r', end='')
-        print(f'fetching comments - post {i}/{len(posts)}, {post["url"]}, {post["title"]}', end='')
+        print(f'fetching comments and additional info - post {i}/{len(posts)}, {post["url"]}, {post["title"]}', end='')
         i += 1
+
+        # open post url and get info 
+        headers = {
+            'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+            'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.88 Safari/537.36'
+        }
+        try:
+            req = requests.get(post['url'], headers=headers)
+            soup = BeautifulSoup(req.text, 'lxml')
+            post['content'] = str(soup.find('div', {'class': 'writing_view_box'}).find('div', {'style':'overflow:hidden;'}))
+            post['votedown'] = int(soup.find('p', {'class': 'down_num'}).get_text())
+        except:
+            continue
 
         comments[idx] = []
         comment_url = 'https://gall.dcinside.com/board/comment/'
