@@ -64,7 +64,7 @@ print(f'\rfetching posts - Done. {t_end - t_start} elapsed.'.ljust(100))
 t_start = datetime.datetime.now()
 url_chunks = {}
 for idx in urls:
-    idx_hash = f'{(int(idx) // 1000) * 1000}'
+    idx_hash = (int(idx) // 1000) * 1000
     if idx_hash not in url_chunks:
         url_chunks[idx_hash] = {}
     url_chunks[idx_hash][idx] = urls[idx]
