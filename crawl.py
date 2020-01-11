@@ -13,7 +13,35 @@ from time import sleep
 
 gall_id = 'dbd' # gallery id 
 n_page = 1000 # number of board pages to scrap
+n_post = 100 # number of posts to scrap
 request_delay = 0.1 # request delay in seconds x
+skip_downloaded = True # if True, ignore already downloaded 
+get_posts_from_board = False
+
+
+# ignore 
+idx_ignore = []
+folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
+if not os.path.exists(folder):
+    os.makedirs(folder)
+
+if skip_downloaded:
+    filenames = [os.path.join(folder, f) for f in os.listdir(folder) 
+        if re.match(rf'{gall_id}_[0-9]+\.json', f) or f == f'{gall_id}_deleted.json']
+    for fn in filenames:
+        with open(fn, 'r', encoding='UTF-8-sig') as f_data:
+            post_chunk = json.load(f_data)
+            idx_ignore.extend(post_chunk.keys())
+    idx_ignore.sort(key=int, reverse=True)
+
+idx_deleted = {}
+fn = os.path.join(folder, f'{gall_id}_deleted.json') 
+if os.path.isfile(fn):
+    with open(fn, 'r', encoding='UTF-8-sig') as f_data:
+        idx_deleted = json.load(f_data)
+
+idx_ignore = set(idx_ignore)
+print(len(idx_ignore))
 
 
 # check robots.txt 
@@ -34,10 +62,12 @@ t_start = datetime.datetime.now()
 urls = {}
 
 for page in range(1, n_page + 1):
+    if len(urls) > n_post:
+        break
     url_board = f"https://gall.dcinside.com/mgallery/board/lists/?id={gall_id}&page={page}"
     if page > 1: 
         print('\r', end='')
-    print(f'fetching posts - page {page}/{n_page}, {url_board}', end='')
+    print(f'fetching post urls - post {len(urls)}/{n_post}, {url_board}', end='')
 
     headers = {
         'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
@@ -52,19 +82,36 @@ for page in range(1, n_page + 1):
                 continue
             idx = data['data-no']
             a = data.find('td', {'class':'gall_tit ub-word'}).a
-            urls[idx] = 'https://gall.dcinside.com/' + a['href']
+            url_post = 'https://gall.dcinside.com/' + a['href']
+            if skip_downloaded and (idx in idx_ignore):
+                continue
+            if len(urls) >= n_post or not get_posts_from_board:
+                idx_base = idx
+                break
+            urls[idx] = url_post
         sleep(request_delay)
-    except:
-        continue
+        if not get_posts_from_board: 
+            print('!')
+            break
+    except Exception as e:
+        print(' ' + str(e))
+        pass
+if not get_posts_from_board:
+    for idx in range(int(idx_base), -1, -1):
+        if skip_downloaded and (str(idx) in idx_ignore):
+            continue
+        url_post = f"https://gall.dcinside.com/mgallery/board/view/?id={gall_id}&no={idx}"
+        urls[idx] = url_post
+        if len(urls) >= n_post:
+            break
 t_end = datetime.datetime.now()
-print(f'\rfetching posts - Done. {t_end - t_start} elapsed.'.ljust(100))
-
+print(f'\rfetching post urls - post {len(urls)}/{n_post}, Done. {t_end - t_start} elapsed.'.ljust(100))
 
 # group urls into chunks  
 t_start = datetime.datetime.now()
 url_chunks = {}
 for idx in urls:
-    idx_hash = (int(idx) // 1000) * 1000
+    idx_hash = str((int(idx) // 1000) * 1000)
     if idx_hash not in url_chunks:
         url_chunks[idx_hash] = {}
     url_chunks[idx_hash][idx] = urls[idx]
@@ -73,13 +120,20 @@ for idx in urls:
 # fetch post data 
 # then save each post chunk to file
 i = 1
-for idx_hash in sorted(url_chunks)[::-1]:
+n_failed = 0
+for idx_hash in sorted(url_chunks, key=int, reverse=True):
     post_chunk = {}
-    for idx in sorted(url_chunks[idx_hash])[::-1]:
+    fn =  os.path.join(os.path.dirname(os.path.abspath(__file__)), f'data/{gall_id}_{idx_hash}.json')
+    if os.path.isfile(fn):
+        with open(fn, 'r', encoding='UTF-8-sig') as f_data:
+            print(idx_hash)
+            post_chunk = json.load(f_data)
+
+    for idx in sorted(url_chunks[idx_hash], key=int, reverse=True):
         url = urls[idx]
         if i > 0: 
             print('\r', end='')
-        print(f'fetching comments and additional info - post {i}/{len(urls)}, {url}', end='')
+        print(f'fetching post info - post {i - n_failed}/{len(urls) - n_failed}, {url}', end='')
         i += 1
 
         # open post url and extract info 
@@ -90,6 +144,10 @@ for idx_hash in sorted(url_chunks)[::-1]:
         try:
             req = requests.get(url, headers=headers)
             soup = BeautifulSoup(req.text, 'lxml')
+            if 'location.replace("/derror/deleted' in req.text:
+                print(f', post deleted: {idx}')
+                idx_deleted[idx] = ""
+                continue          
             post = {}
             head = soup.find('div', {'class': 'gallview_head clear ub-content'})
             post['title'] = head.find('span', {'class': 'title_subject'}).get_text()
@@ -109,6 +167,7 @@ for idx_hash in sorted(url_chunks)[::-1]:
             post['votedown'] = int(rec.find('p', {'class': 'down_num'}).get_text())
             # print(post)
         except Exception as e: 
+            n_failed += 1
             continue
 
         post['comments'] = []
@@ -152,11 +211,11 @@ for idx_hash in sorted(url_chunks)[::-1]:
         post_chunk[idx] = post
 
     # save chunk to file
-    filename =  os.path.join(os.path.dirname(os.path.abspath(__file__)), f'data/{gall_id}_{idx_hash}.json')
-    if not os.path.exists(os.path.dirname(filename)):
-        os.makedirs(os.path.dirname(filename))
-    print(f', {filename}')
-    with open(filename, 'w', encoding='UTF-8-sig') as f_data:
-        json.dump(post_chunk, f_data, indent=4, sort_keys=True, ensure_ascii=False)
+    fn =  os.path.join(os.path.dirname(os.path.abspath(__file__)), f'data/{gall_id}_{idx_hash}.json')
+    with open(fn, 'w', encoding='UTF-8-sig') as f_data:
+        json.dump(post_chunk, f_data, indent=4, ensure_ascii=False)
+fn =  os.path.join(os.path.dirname(os.path.abspath(__file__)), f'data/{gall_id}_deleted.json')
+with open(fn, 'w', encoding='UTF-8-sig') as f_data:
+    json.dump(idx_deleted, f_data, indent=4, ensure_ascii=False)
 t_end = datetime.datetime.now()
-print(f'fetching comments - Done. {t_end - t_start} elapsed.'.ljust(200))
+print(f'\rfetching comments - Done. {t_end - t_start} elapsed.'.ljust(200))
