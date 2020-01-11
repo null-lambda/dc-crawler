@@ -14,7 +14,7 @@ import random
 
 gall_id = 'dbd' # gallery id 
 n_post = 1000 # number of posts to scrap
-request_delay = lambda: random.uniform(3, 6) # request delay in seconds x
+request_delay = lambda: random.uniform(3, 5) # request delay in seconds x
 skip_downloaded = True # if True, ignore already downloaded 
 get_posts_from_board = False
 page_max = 1000 # max pages on board 
@@ -121,6 +121,7 @@ for idx in urls:
 i = 1
 n_failed = 0
 for idx_hash in sorted(url_chunks, key=int, reverse=True):
+    sleep(request_delay())
     post_chunk = {}
     fn =  os.path.join(os.path.dirname(os.path.abspath(__file__)), f'data/{gall_id}_{idx_hash}.json')
     if os.path.isfile(fn):
@@ -173,6 +174,7 @@ for idx_hash in sorted(url_chunks, key=int, reverse=True):
         comment_page = 1
         max_comment_page = 1 
         while comment_page <= max_comment_page:
+            sleep(request_delay())
             data = f'id={gall_id}&no={idx}&cmt_id={gall_id}&cmt_no={idx}&e_s_n_o=3eabc219ebdd65f53b&comment_page={comment_page}&sort='
             headers = {
                 'Accept':'application/json, text/javascript, */*; q=0.01',
@@ -205,7 +207,6 @@ for idx_hash in sorted(url_chunks, key=int, reverse=True):
                 pass
             #print(post['comments'])
             comment_page += 1
-            sleep(request_delay())
         post_chunk[idx] = post
 
     # save chunk to file
@@ -216,4 +217,4 @@ fn =  os.path.join(os.path.dirname(os.path.abspath(__file__)), f'data/{gall_id}_
 with open(fn, 'w', encoding='UTF-8-sig') as f_data:
     json.dump(idx_deleted, f_data, indent=4, ensure_ascii=False)
 t_end = datetime.datetime.now()
-print(f'\rfetching comments - post {i - n_failed}/{len(urls)}, Done. {t_end - t_start} elapsed.'.ljust(200))
+print(f'\rfetching post info - post {i - n_failed}/{len(urls) - n_failed}, {url}, Done. {t_end - t_start} elapsed.'.ljust(200))
