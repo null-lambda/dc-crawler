@@ -1,8 +1,7 @@
 tempCodeRunnerFile.py
 .vscode/.ropeproject/config.py
-filter.py
 data/*
-filtered.csv
+backup/*
 *.xlsx
 *.csv
 .vscode/.ropeproject/objectdb

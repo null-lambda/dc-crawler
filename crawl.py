@@ -6,17 +6,18 @@ import datetime
 import re
 import os
 from time import sleep
+import random
 
 # to extract:
 # posts_chunk = {idx: url,  reg_date, name, ip or user_id, title, content, view, voteup, votedown, {comments}}
 # comments = {idx: list of (reg_date, name, ip or user_id, content)}
 
 gall_id = 'dbd' # gallery id 
-n_page = 1000 # number of board pages to scrap
-n_post = 100 # number of posts to scrap
-request_delay = 0.1 # request delay in seconds x
+n_post = 1000 # number of posts to scrap
+request_delay = lambda: random.uniform(3, 6) # request delay in seconds x
 skip_downloaded = True # if True, ignore already downloaded 
 get_posts_from_board = False
+page_max = 1000 # max pages on board 
 
 
 # ignore 
@@ -41,8 +42,6 @@ if os.path.isfile(fn):
         idx_deleted = json.load(f_data)
 
 idx_ignore = set(idx_ignore)
-print(len(idx_ignore))
-
 
 # check robots.txt 
 try:
@@ -61,7 +60,7 @@ except:
 t_start = datetime.datetime.now()
 urls = {}
 
-for page in range(1, n_page + 1):
+for page in range(1, page_max + 1):
     if len(urls) > n_post:
         break
     url_board = f"https://gall.dcinside.com/mgallery/board/lists/?id={gall_id}&page={page}"
@@ -89,7 +88,7 @@ for page in range(1, n_page + 1):
                 idx_base = idx
                 break
             urls[idx] = url_post
-        sleep(request_delay)
+        sleep(request_delay())
         if not get_posts_from_board: 
             print('!')
             break
@@ -126,7 +125,6 @@ for idx_hash in sorted(url_chunks, key=int, reverse=True):
     fn =  os.path.join(os.path.dirname(os.path.abspath(__file__)), f'data/{gall_id}_{idx_hash}.json')
     if os.path.isfile(fn):
         with open(fn, 'r', encoding='UTF-8-sig') as f_data:
-            print(idx_hash)
             post_chunk = json.load(f_data)
 
     for idx in sorted(url_chunks[idx_hash], key=int, reverse=True):
@@ -207,7 +205,7 @@ for idx_hash in sorted(url_chunks, key=int, reverse=True):
                 pass
             #print(post['comments'])
             comment_page += 1
-            sleep(request_delay)
+            sleep(request_delay())
         post_chunk[idx] = post
 
     # save chunk to file
@@ -218,4 +216,4 @@ fn =  os.path.join(os.path.dirname(os.path.abspath(__file__)), f'data/{gall_id}_
 with open(fn, 'w', encoding='UTF-8-sig') as f_data:
     json.dump(idx_deleted, f_data, indent=4, ensure_ascii=False)
 t_end = datetime.datetime.now()
-print(f'\rfetching comments - Done. {t_end - t_start} elapsed.'.ljust(200))
+print(f'\rfetching comments - post {i - n_failed}/{len(urls)}, Done. {t_end - t_start} elapsed.'.ljust(200))
