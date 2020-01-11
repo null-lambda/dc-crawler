@@ -9,6 +9,7 @@ import csv
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning, module='bs4')
 
+
 nlp = Twitter()
 print('nlp loaded')
 
@@ -133,10 +134,10 @@ with open(fn, 'w', encoding='UTF-8-sig', newline='') as f_data:
 fn = os.path.join(folder, f'{gall_id}_posts.csv')
 with open(fn, 'w', encoding='UTF-8-sig', newline='') as f_data:
     for idx in post_stats:
-        post_stats[idx] = idx
+        post_stats[idx]['idx']= idx
     post_stats = list(post_stats.values())
     if post_stats:
         keys = post_stats[0].keys()
         writer = csv.DictWriter(f_data, keys)
         writer.writeheader()
-        writer.writerows(user_stats)
+        writer.writerows(post_stats)
