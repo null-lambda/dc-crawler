@@ -1,8 +1,6 @@
-tempCodeRunnerFile.py
-.vscode/.ropeproject/config.py
-data/*
-backup/*
+.vscode/
+data/
+backup/
 *.xlsx
 *.csv
-.vscode/.ropeproject/objectdb
-stats.py
+tempCodeRunnerFile.py
