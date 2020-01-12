@@ -14,7 +14,7 @@ import random
 
 gall_id = 'dbd' # gallery id 
 n_post = 1000 # number of posts to scrap
-request_delay = lambda: random.uniform(3, 10) # request delay in seconds x
+request_delay = lambda: random.uniform(0.5, 1) # request delay in seconds x
 skip_downloaded = True # if True, ignore already downloaded 
 get_posts_from_board = False
 page_max = 1000 # max pages on board 
@@ -85,12 +85,11 @@ for page in range(1, page_max + 1):
             url_post = 'https://gall.dcinside.com/' + a['href']
             if skip_downloaded and (idx in idx_ignore):
                 continue
-            if len(urls) >= n_post or not get_posts_from_board:
-                idx_base = idx
+            if len(urls) >= n_post:
                 break
             urls[idx] = url_post
         if not get_posts_from_board: 
-            print('!')
+            idx_base = str(max(list(urls), key=int))
             break
     except Exception as e:
         print(' ' + str(e))
@@ -120,14 +119,14 @@ for idx in urls:
 # then save each post chunk to file
 i = 1
 n_failed = 0
-for idx_hash in sorted(url_chunks, key=int, reverse=True):
+for idx_hash in sorted(url_chunks, key=int):
     post_chunk = {}
     fn =  os.path.join(os.path.dirname(os.path.abspath(__file__)), f'data/{gall_id}_{idx_hash}.json')
     if os.path.isfile(fn):
         with open(fn, 'r', encoding='UTF-8-sig') as f_data:
             post_chunk = json.load(f_data)
 
-    for idx in sorted(url_chunks[idx_hash], key=int, reverse=True):
+    for idx in sorted(url_chunks[idx_hash], key=int):
         url = urls[idx]
         if i > 0: 
             print('\r', end='')
@@ -153,18 +152,14 @@ for idx_hash in sorted(url_chunks, key=int, reverse=True):
             post['reg_date'] = head.find('span', {'class': 'gall_date'})['title']
             data_name = head.find('div', {'class': 'gall_writer ub-writer'})
             post['name'] = data_name['data-nick']
-            try:
-                post['ip'] = data_name['ip']
-                post['user_id'] = ''
-            except:
-                post['ip'] = ''
-                post['user_id'] = data_name['data-uid']
+            post['ip'] = data_name['data-ip']
+            post['user_id'] = data_name['data-uid']
             post['view'] = int(head.find('span', {'class': 'gall_count'}).get_text()[2:])
             post['content'] = str(soup.find('div', {'class': 'writing_view_box'}).find('div', {'style':'overflow:hidden;'}))
             rec = soup.find('div', {'class': 'btn_recommend_box clear'})
             post['voteup'] = int(rec.find('p', {'class': 'up_num font_red'}).get_text())
             post['votedown'] = int(rec.find('p', {'class': 'down_num'}).get_text())
-            # print(post)
+            #print(post)
         except Exception as e: 
             n_failed += 1
             continue

@@ -20,9 +20,10 @@ print('nlp loaded')
 # to extract: 
 #   names = {name_hash: name}
 #   user_stats = {name_hash: alias,
-#     num_posts, num_comments(ignore deleted comments), total_char(text only), view, voteup, votedown,
-#     keywords(top 10)}
-#   post_stats = {post: num_comments, view, voteup, votedown}
+#     num_posts, num_comments(ignore deleted comments), view, voteup, votedown,
+#     total_char(text only), keywords(top 12)
+#     }
+#   post_stats = {post_idx: title, num_comments, view, voteup, votedown}
 
 gall_id = 'dbd' 
 # month = '2020-01'
@@ -39,21 +40,25 @@ def filter_post(post):
         return False
     return True
 
+def name_hash(data):
+    name, ip, user_id = data['name'], data['ip'], data['user_id']
+    return f'{name}({ip})' 
+
 
 def update_user_stats(data):
     # find name hash
     name, ip, user_id = data['name'], data['ip'], data['user_id']
     if not ip and not user_id: # invalid name or advertisement
         return
-    h = f'{name}({ip})' if ip else user_id # name hash
+    h = name_hash(data)
 
     # init 
     if h not in names:
         names[h] = Counter() # temporary, replace with list or text
         user_stats[h] = {
             'alias': h, # temporary for fixed names 
-            'total_char':0, 'keywords': Counter(), # temporary, replace with list or text
-            'num_posts': 0, 'num_comments': 0, 'view':0, 'voteup':0, 'votedown': 0
+            'num_posts': 0, 'num_comments': 0, 'view':0, 'voteup':0, 'votedown': 0,
+            'total_char':0, 'keywords': Counter() # temporary, replace with list or text
             }
             
     # data: post, comments
@@ -90,10 +95,12 @@ for fn in filenames:
         if not filter_post(post):
             continue
         post_stats[idx] = {
+            'title': post['title'],
             'num_comments': len(post['comments']), 
             'view': post['view'], 
             'voteup': post['voteup'], 
-            'votedown': post['votedown']}
+            'votedown': post['votedown'],
+            'alias': name_hash(post)}
         update_user_stats(post)
         for comment in post['comments']:
             update_user_stats(comment)
@@ -112,6 +119,10 @@ global_keywords = sum((user_stats[h]['keywords'] for h in user_stats), Counter()
 
 for h in user_stats:
     user_stats[h]['keywords'] = ' '.join(c[0] for c in user_stats[h]['keywords'].most_common(12))
+
+for idx in post_stats:
+    h = post_stats[idx]['alias']
+    post_stats[idx]['alias'] = user_stats[h]['alias']
     
 t_end = dt.datetime.now()
 print(f'Done. {t_end - t_start} elapsed.'.ljust(100))
@@ -126,7 +137,7 @@ fn = os.path.join(folder, f'{gall_id}_users.csv')
 with open(fn, 'w', encoding='UTF-8-sig', newline='') as f_data:
     user_stats = list(user_stats.values())
     if user_stats:
-        keys = user_stats[0].keys()
+        keys = 'alias num_posts num_comments view voteup votedown total_char keywords'.split()
         writer = csv.DictWriter(f_data, keys)
         writer.writeheader()
         writer.writerows(user_stats)
@@ -137,7 +148,7 @@ with open(fn, 'w', encoding='UTF-8-sig', newline='') as f_data:
         post_stats[idx]['idx']= idx
     post_stats = list(post_stats.values())
     if post_stats:
-        keys = post_stats[0].keys()
+        keys = ['idx', 'title', 'num_comments', 'view', 'voteup', 'votedown', 'alias']
         writer = csv.DictWriter(f_data, keys)
         writer.writeheader()
         writer.writerows(post_stats)
