@@ -42,8 +42,7 @@ def filter_post(post):
 
 def name_hash(data):
     name, ip, user_id = data['name'], data['ip'], data['user_id']
-    return f'{name}({ip})' 
-
+    return f'{name}({ip})' if ip else user_id 
 
 def update_user_stats(data):
     # find name hash
