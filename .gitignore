@@ -3,4 +3,10 @@ data/
 backup/
 *.xlsx
 *.csv
+*.7z
+*.zip
+*.png
+__pycache__/
 tempCodeRunnerFile.py
+*.txt
+.gitignore
